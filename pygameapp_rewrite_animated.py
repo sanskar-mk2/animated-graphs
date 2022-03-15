@@ -86,7 +86,7 @@ class AnimatedGraph(Graph):
         self.at: int = 0
 
     def seed_rectangles(self):
-        self.data = self.data.sort_values(0, ascending=False)
+        self.data = self.data.sort_values(self.data.columns[0], ascending=False)
         k_v_pair = zip(
             self.data.index.to_series().to_list(), self.data.iloc[:, 0].to_list()
         )
@@ -121,12 +121,11 @@ class AnimatedGraph(Graph):
         # for ts in range(len(self.data.columns)):
         # if self.pgapp.time_elapsed // time_each
         if time_each * (self.at + 1) < self.pgapp.time_elapsed:
-            print("hit", self.pgapp.time_elapsed)
             if self.at < self.dt_len - 1:
                 self.at += 1
             else:
                 return
-            self.data = self.data.sort_values(self.at, ascending=False)
+            self.data = self.data.sort_values(self.data.columns[self.at], ascending=False)
             for idx, item in enumerate(self.data["bars"]):
                 item.start = item.finish
                 item.finish = self.data.loc[item.title][self.at]
@@ -194,7 +193,7 @@ class AnimatedGraph(Graph):
 
     def dt_renders(self, where: str, color, distance=50):
         render = self.header_font.render(
-            str(self.at),
+            str(self.data.columns[self.at]),
             True,
             color.rgb(),
         )
@@ -341,6 +340,6 @@ if __name__ == "__main__":
         # app.draw_image_on_right(1, b, graph.bars)
         # app.draw_image_on_right(2, c, graph.bars)
         # app.draw_image_on_right(3, d, graph.bars)
-        pygame.display.update()
+        app.update_display()
         app.fpsClock.tick(FPS)
         app.time_elapsed += time.time() - app.t0

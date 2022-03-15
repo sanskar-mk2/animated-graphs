@@ -116,6 +116,9 @@ class PyGamer:
         self.time_elapsed: float = 0.0
         self.fpsClock = pygame.time.Clock()
 
+    def update_display(self):
+        pygame.display.update()
+
     def draw_data_rects(
         self,
         data: list,
