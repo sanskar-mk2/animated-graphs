@@ -1,3 +1,4 @@
 # animated-graphs
 
-https://user-images.githubusercontent.com/100945489/158219318-f63577a7-c5cc-4966-a300-59e2f17d62b7.mp4
+https://user-images.githubusercontent.com/100945489/158519443-2dc51fd9-29f6-4de1-b855-5db8f0b0aed6.mp4
+
