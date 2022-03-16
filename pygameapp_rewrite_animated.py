@@ -64,26 +64,32 @@ class AnimatedGraph(Graph):
         left_gap: int,
         text_bar_distance: int = 20,
         small_text_size=40,
+        to_show: int = 10,
+        value_prepost: tuple[str, str] = (str(), str()),
+        debug: bool = False,
     ) -> None:
         self.pgapp: PyGamer = pgapp
         self.data: pd.DataFrame = data
+        self.data[f"{list(self.data.columns)[-1]}—"] = self.data.iloc[:, -1]
         self.dt_len = data.shape[1]
-        self.bars_count: int = len(data)
+        self.bars_count: int = len(self.data)
         self.header: pygame.Rect = pygame.Rect(0, 0, pgapp.aw, header)
         self.bar_height: int = bar_height
         self.width_multiplier: float = width_multiplier
         self.bars: list[UberRectAnim] = list()
+        self.to_show = to_show
         self.gap: float = (
-            self.pgapp.ah - self.header.height - (self.bars_count * bar_height)
-        ) / (1 + self.bars_count)
+            self.pgapp.ah - self.header.height - (self.to_show * bar_height)
+        ) / (1 + self.to_show)
         self.colors: list[Color] = colors
         self.left_gap = left_gap
-
+        self.value_prepost: tuple[str, str] = value_prepost
         self.create_header(header_font, header_font_size, header_text)
 
         self.seed_rectangles()
         self.create_text_render(small_text_size, header_font, text_bar_distance)
         self.at: int = 0
+        self.debug: bool = debug
 
     def seed_rectangles(self):
         self.data = self.data.sort_values(self.data.columns[0], ascending=False)
@@ -125,7 +131,11 @@ class AnimatedGraph(Graph):
                 self.at += 1
             else:
                 return
-            self.data = self.data.sort_values(self.data.columns[self.at], ascending=False)
+            self.data = self.data.sort_values(
+                self.data.columns[self.at], ascending=False
+            )
+            if self.debug:
+                print(self.data)
             for idx, item in enumerate(self.data["bars"]):
                 item.start = item.finish
                 item.finish = self.data.loc[item.title][self.at]
@@ -162,7 +172,7 @@ class AnimatedGraph(Graph):
         for obj in self.bars:
             render = self.text_font_obj.render(
                 # check whats writen in base class if needed
-                str(obj.width // self.width_multiplier),
+                f"{self.value_prepost[0]}{obj.width // self.width_multiplier}{self.value_prepost[1]}",
                 True,
                 color.rgb(),
             )
@@ -206,7 +216,9 @@ class AnimatedGraph(Graph):
 
 
 if __name__ == "__main__":
-    FONT: str = "./assets/fonts/Kelvinch-Bold.otf"  # "./res/Shaky Hand Some Comic_bold.otf"
+    FONT: str = (
+        "./assets/fonts/Kelvinch-Bold.otf"  # "./res/Shaky Hand Some Comic_bold.otf"
+    )
     TIME_EACH: float = 0.5
     FPS: int = 60
     TITLE: str = "Test Title"

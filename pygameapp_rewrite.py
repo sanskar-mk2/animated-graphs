@@ -179,6 +179,8 @@ class Graph:
         left_gap: int,
         text_bar_distance: int = 20,
         small_text_size=40,
+        to_show: int = 10,
+        value_prepost: tuple[str, str] = (str(), str()),
     ) -> None:
         self.pgapp: PyGamer = pgapp
         self.data: list[tuple[str, int]] = data
@@ -187,11 +189,13 @@ class Graph:
         self.bar_height: int = bar_height
         self.width_multiplier: float = width_multiplier
         self.bars: list = list()
+        self.to_show: int = to_show
         self.gap: float = (
-            self.pgapp.ah - self.header.height - (self.bars_count * bar_height)
-        ) / (1 + self.bars_count)
+            self.pgapp.ah - self.header.height - (self.to_show * bar_height)
+        ) / (1 + self.to_show)
         self.colors: list[Color] = colors
         self.left_gap = left_gap
+        self.value_prepost: tuple[str, str] = value_prepost
 
         self.create_header(header_font, header_font_size, header_text)
 
