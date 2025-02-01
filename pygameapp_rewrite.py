@@ -1,12 +1,10 @@
-import abc
 from typing import Iterator
-import numpy
 import pygame
 from color import Color
 import time
-from PIL import Image, ImageDraw  # type: ignore
+from PIL import Image, ImageDraw
 import math
-import pandas as pd  # type: ignore
+import pandas as pd
 import numpy as np
 
 
@@ -263,9 +261,11 @@ class Graph:
     ) -> Iterator[tuple[pygame.surface.Surface, pygame.rect.Rect, bool]]:
         for obj in self.bars:
             render = self.text_font_obj.render(
-                f"{str((obj.width // self.width_multiplier))}"
-                if obj.width < obj.target
-                else f"{str((obj.target//self.width_multiplier))}",
+                (
+                    f"{str((obj.width // self.width_multiplier))}"
+                    if obj.width < obj.target
+                    else f"{str((obj.target//self.width_multiplier))}"
+                ),
                 True,
                 color.rgb(),
             )

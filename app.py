@@ -1,7 +1,5 @@
-from datetime import date
 from pygameapp_rewrite_animated import AnimatedGraph, PyGamerExt
 from color import Color
-import numpy as np
 import pandas as pd  # type: ignore
 import time
 import pygame

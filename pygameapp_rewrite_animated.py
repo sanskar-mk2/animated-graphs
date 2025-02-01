@@ -1,12 +1,9 @@
-from typing import Iterator, Sequence
+from typing import Iterator
 import pygame
+import numpy as np
 from color import Color
 import time
-from PIL import Image, ImageDraw  # type: ignore
-import math
-import pandas as pd  # type: ignore
-import numpy as np
-import pprint
+import pandas as pd
 from pygameapp_rewrite import Graph, UberRect, PyGamer
 
 
@@ -138,7 +135,9 @@ class AnimatedGraph(Graph):
                 print(self.data)
             for idx, item in enumerate(self.data["bars"]):
                 item.start = item.finish
-                item.finish = self.data.loc[item.title][self.at]
+                item.finish = self.data.iloc[
+                    self.data.index.get_loc(item.title), self.at
+                ]
                 # vertical
                 item.vstart = item.vfinish
                 item.vfinish = (
