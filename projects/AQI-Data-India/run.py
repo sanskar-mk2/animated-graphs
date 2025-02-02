@@ -4,15 +4,7 @@ import numpy as np
 
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(root_dir)
-from src.racing_bar_chart import AnimatedGraph, PyGamerExt
-from src.color import Color
-
-SIZE = 1920, 1080
-
-
-import pandas as pd
-import numpy as np
-
+from src.racing_bar_chart import AnimatedGraph, PyGamerExt, GraphTheme, LayoutConfig
 
 BREAKPOINTS = {
     "PM10": {
@@ -309,21 +301,22 @@ def process_data():
 FONT: str = "./assets/fonts/Kelvinch-Bold.otf"
 if __name__ == "__main__":
     data = pd.read_csv("UP2.csv", index_col=0)
-    app = PyGamerExt(SIZE)
+    theme = GraphTheme()
+    layout = LayoutConfig()
+    app = PyGamerExt((layout.width, layout.height))
     graph = AnimatedGraph(
         pgapp=app,
         data=data,
-        header=100,
         header_text="AQI for UP",
         header_font_size=40,
         header_font=FONT,
-        bar_height=40,
         width_multiplier=2,
-        colors=[Color.random_rgb() for _ in range(500)],
         left_gap=400,
         text_bar_distance=30,
         small_text_size=30,
         to_show=10,
-        # debug=True
+        # debug=True,
+        theme=theme,
+        layout=layout,
     )
     graph.run()

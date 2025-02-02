@@ -4,7 +4,50 @@ import numpy as np
 from color import Color
 import time
 import pandas as pd
-from pygameapp_rewrite import Graph, UberRect, PyGamer
+from src.bar_chart_base import Graph, UberRect, PyGamer
+from dataclasses import dataclass
+
+
+@dataclass
+class GraphTheme:
+    """Defines the visual theme for the graph."""
+
+    background_color: tuple[int, int, int] = Color("#28282e")
+    header_color: tuple[int, int, int] = Color("#6c5671")
+    text_color: tuple[int, int, int] = Color("#ffffff")
+    bar_colors: list[tuple[int, int, int]] = None
+
+    def __post_init__(self):
+        if self.bar_colors is None:
+            # Default color palette
+            self.bar_colors = [
+                Color("#f98284"),
+                Color("#ffc384"),
+                Color("#dea38b"),
+                Color("#e9f59d"),
+                Color("#fff7a0"),
+                Color("#b0eb93"),
+                Color("#b3e3da"),
+                Color("#accce4"),
+                Color("#b0a9e4"),
+                Color("#feaae4"),
+            ]
+
+
+@dataclass
+class LayoutConfig:
+    """Defines the layout configuration for the graph."""
+
+    width: int = 1280
+    height: int = 720
+    header_height: int = 80
+    bar_height: int = 40
+    bar_gap: int = 20
+    left_margin: int = 200
+    right_margin: int = 50
+    text_bar_gap: int = 20
+    value_prefix: str = ""
+    value_suffix: str = ""
 
 
 class PyGamerExt(PyGamer):
@@ -46,41 +89,129 @@ class UberRectAnim(UberRect):
         self.vfinish: int = vfinish
 
 
+class BarManager:
+    """Manages the bar-related logic and animations."""
+
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        theme: GraphTheme,
+        layout: LayoutConfig,
+        left_gap: int,
+        header_height: int,
+        to_show: int,
+    ):
+        self.data = data
+        self.theme = theme
+        self.layout = layout
+        self.bars = []
+        self.left_gap = left_gap
+        self.header_height = header_height
+        self.to_show = to_show
+        self.gap = self._calculate_gap(header_height)
+
+    def _calculate_gap(self, header_height: int) -> float:
+        return (
+            self.layout.height - header_height - (self.to_show * self.layout.bar_height)
+        ) / (1 + self.to_show)
+
+    def initialize_bars(self):
+        """Initialize the bars with their initial positions and properties."""
+        self.data = self.data.sort_values(self.data.columns[0], ascending=False)
+        k_v_pair = zip(
+            self.data.index.to_series().to_list(), self.data.iloc[:, 0].to_list()
+        )
+
+        for idx, (k, v) in enumerate([i for i in k_v_pair]):
+            bar = UberRectAnim(
+                left=self.left_gap,
+                top=self.header_height
+                + self.gap * (idx + 1)
+                + self.layout.bar_height * idx,
+                width=0,
+                height=self.layout.bar_height,
+                target=v,
+                title=k,
+                color=self.theme.bar_colors[idx % len(self.theme.bar_colors)],
+                start=0,
+                finish=v,
+                vstart=self.header_height
+                + self.gap * (idx + 1)
+                + self.layout.bar_height * idx,
+                vfinish=self.header_height
+                + self.gap * (idx + 1)
+                + self.layout.bar_height * idx,
+            )
+            self.bars.append(bar)
+
+        self.data["bars"] = self.bars
+        return self.bars
+
+    @staticmethod
+    def animate_bar_width(
+        bar: "UberRectAnim", delta_time: float, time_each: float, width_mult: float
+    ):
+        """Animate the width of a bar."""
+        change_per_ms = (bar.finish - bar.start) / time_each
+        bar.width = (bar.start + change_per_ms * delta_time) * width_mult
+
+    @staticmethod
+    def animate_bar_position(bar: "UberRectAnim", delta_time: float, time_each: float):
+        """Animate the vertical position of a bar."""
+        change_per_ms = (bar.vfinish - bar.vstart) / time_each
+        bar.top = int(bar.vstart + change_per_ms * delta_time)
+
+    def update_bar_positions(self, current_time: int, time_each: float):
+        """Update all bar positions for the current frame."""
+        self.data = self.data.sort_values(
+            self.data.columns[current_time], ascending=False
+        )
+
+        for idx, bar in enumerate(self.data["bars"]):
+            bar.start = bar.finish
+            bar.finish = self.data.iloc[
+                self.data.index.get_loc(bar.title), current_time
+            ]
+            bar.vstart = bar.vfinish
+            bar.vfinish = (
+                self.header_height + self.gap * (idx + 1) + self.layout.bar_height * idx
+            )
+
+
 class AnimatedGraph(Graph):
     def __init__(
         self,
         pgapp: PyGamer,
         data: pd.DataFrame,
-        header: int,
         header_text: str,
         header_font_size: int,
         header_font: str,
-        bar_height: int,
         width_multiplier: float,
-        colors: list[Color],
         left_gap: int,
         text_bar_distance: int = 20,
         small_text_size=40,
         to_show: int = 10,
-        value_prepost: tuple[str, str] = (str(), str()),
         debug: bool = False,
+        theme: GraphTheme = GraphTheme(),
+        layout: LayoutConfig = LayoutConfig(),
     ) -> None:
         self.pgapp: PyGamer = pgapp
         self.data: pd.DataFrame = data
+        self.theme: GraphTheme = theme
+        self.layout: LayoutConfig = layout
         self.data[f"{list(self.data.columns)[-1]}—"] = self.data.iloc[:, -1]
         self.dt_len = data.shape[1]
         self.bars_count: int = len(self.data)
-        self.header: pygame.Rect = pygame.Rect(0, 0, pgapp.aw, header)
-        self.bar_height: int = bar_height
+        self.header: pygame.Rect = pygame.Rect(
+            0, 0, pgapp.aw, self.layout.header_height
+        )
         self.width_multiplier: float = width_multiplier
         self.bars: list[UberRectAnim] = list()
         self.to_show = to_show
         self.gap: float = (
-            self.pgapp.ah - self.header.height - (self.to_show * bar_height)
+            self.pgapp.ah - self.header.height - (self.to_show * self.layout.bar_height)
         ) / (1 + self.to_show)
-        self.colors: list[Color] = colors
         self.left_gap = left_gap
-        self.value_prepost: tuple[str, str] = value_prepost
         self.create_header(header_font, header_font_size, header_text)
 
         self.seed_rectangles()
@@ -97,21 +228,26 @@ class AnimatedGraph(Graph):
             self.bars.append(
                 UberRectAnim(
                     self.left_gap,
-                    self.header.height + self.gap * (idx + 1) + self.bar_height * idx,
+                    self.header.height
+                    + self.gap * (idx + 1)
+                    + self.layout.bar_height * idx,
                     0,
-                    self.bar_height,
+                    self.layout.bar_height,
                     v,
                     k,
-                    self.colors[idx],
+                    self.theme.bar_colors[idx % len(self.theme.bar_colors)],
                     0,
                     v,
-                    self.header.height + self.gap * (idx + 1) + self.bar_height * idx,
-                    self.header.height + self.gap * (idx + 1) + self.bar_height * idx,
+                    self.header.height
+                    + self.gap * (idx + 1)
+                    + self.layout.bar_height * idx,
+                    self.header.height
+                    + self.gap * (idx + 1)
+                    + self.layout.bar_height * idx,
                 )
             )
 
         self.data["bars"] = self.bars
-        print(self.data)
 
     def simultaneous_grow(self, time_each):
         for item in self.bars:
@@ -121,8 +257,6 @@ class AnimatedGraph(Graph):
                 )
 
     def animated_grow(self, time_each):
-        # for ts in range(len(self.data.columns)):
-        # if self.pgapp.time_elapsed // time_each
         if time_each * (self.at + 1) < self.pgapp.time_elapsed:
             if self.at < self.dt_len - 1:
                 self.at += 1
@@ -141,7 +275,9 @@ class AnimatedGraph(Graph):
                 # vertical
                 item.vstart = item.vfinish
                 item.vfinish = (
-                    self.header.height + self.gap * (idx + 1) + self.bar_height * idx
+                    self.header.height
+                    + self.gap * (idx + 1)
+                    + self.layout.bar_height * idx
                 )
         for item in self.data["bars"]:
             # if item.width < item.finish:
@@ -171,7 +307,7 @@ class AnimatedGraph(Graph):
         for obj in self.bars:
             render = self.text_font_obj.render(
                 # check whats writen in base class if needed
-                f"{self.value_prepost[0]}{obj.width // self.width_multiplier}{self.value_prepost[1]}",
+                f"{self.layout.value_prefix}{obj.width // self.width_multiplier}{self.layout.value_suffix}",
                 True,
                 color.rgb(),
             )
@@ -186,7 +322,9 @@ class AnimatedGraph(Graph):
         # this needs to run before create_continuous_render since it creates the
         self.text_font_obj = pygame.font.Font(header_font, font_size)
         for obj in self.data["bars"]:
-            render = self.text_font_obj.render(obj.title, True, Color.rgb_white())
+            render = self.text_font_obj.render(
+                obj.title, True, self.theme.text_color.rgb()
+            )
             render_rect = render.get_rect()
             render_rect.center = (render_rect.center[0], obj.centery)
             render_rect.right = self.left_gap - extra_gap
@@ -212,27 +350,27 @@ class AnimatedGraph(Graph):
             render_rect.bottom = self.pgapp.ah - distance
 
         return render, render_rect
-    
+
     def run(self):
         while self.pgapp.running:
             self.pgapp.t0 = time.time()
             for event in pygame.event.get():
                 self.pgapp.kill_switch(event)
 
-            self.pgapp.screen.fill(Color("#28282e").rgb())
+            self.pgapp.screen.fill(self.theme.background_color.rgb())
             self.animated_grow(0.1)
             self.pgapp.draw_data_rects(
                 self.bars,
                 self.header,
-                Color("#6c5671"),
+                self.theme.header_color,
                 self.header_text_render,
                 self.header_text_rect,
             )
 
             self.move_text_renders()
             self.pgapp.draw_rect_text(self.data, [bar.width > 0 for bar in self.bars])
-            renders = self.create_continuous_renders(10, Color("#ffffff"))
-            dt_renders = self.dt_renders("BR", Color("#ffffff"), 200)
+            renders = self.create_continuous_renders(10, self.theme.text_color)
+            dt_renders = self.dt_renders("BR", self.theme.text_color, 200)
             self.pgapp.draw_dt(dt_renders)
             self.pgapp.draw_continuous_numbers(renders)
             self.pgapp.update_display()
