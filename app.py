@@ -64,6 +64,7 @@ if __name__ == "__main__":
     dates = pd.to_datetime(colname)
     datesstr = dates.dt.strftime("%b %Y")
     df.columns = datesstr
+    print(df)
 
     # objects
     app: PyGamerExt = PyGamerExt(SIZE)
