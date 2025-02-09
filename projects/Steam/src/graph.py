@@ -26,7 +26,8 @@ class GraphConfig:
         fps: int = 60,
         animation_speed: float = 0.05,
         bg_color: Color = Color("#000000"),
-        header_color: Color = Color("#FFFFFF"),
+        header_bg_color: Color = Color("#FFFFFF"),
+        header_text_color: Color = Color("#000000"),
         value_gap: int = 10,
         animation_type: str = "bottom_up",
     ) -> None:
@@ -47,15 +48,20 @@ class GraphConfig:
             fps: Frames per second for animation
             animation_speed: Time in seconds for each bar's growth
             bg_color: Background color
-            header_color: Header text color
+            header_bg_color: Header background color
+            header_text_color: Header text color
             value_gap: Gap between value text and bar edge
             animation_type: Type of animation ("simultaneous", "top_down", "bottom_up")
+
         """
         self.header_font = header_font
         self.header_font_size = header_font_size
         self.header_text = header_text
         self.bar_height = bar_height
-        self.width_multiplier = width_multiplier
+        # Adjust width multiplier based on screen width
+        screen_info = pygame.display.Info()
+        max_width = screen_info.current_w - left_gap - 100  # Leave some margin
+        self.width_multiplier = min(width_multiplier, max_width)
         self.colors = colors
         self.left_gap = left_gap
         self.text_bar_distance = text_bar_distance
@@ -65,7 +71,8 @@ class GraphConfig:
         self.fps = fps
         self.animation_speed = animation_speed
         self.bg_color = bg_color
-        self.header_color = header_color
+        self.header_bg_color = header_bg_color
+        self.header_text_color = header_text_color
         self.value_gap = value_gap
         self.animation_type = animation_type
 
@@ -84,7 +91,7 @@ class GraphHeader:
         self.rect = pygame.Rect(0, 0, app_width, header_height)
         self.font = pygame.font.Font(config.header_font, config.header_font_size)
         self.text_render = self.font.render(
-            config.header_text, True, config.header_color.rgb()
+            config.header_text, True, config.header_text_color.rgb()
         )
         self.text_rect = self.text_render.get_rect()
         self.text_rect.center = self.rect.width // 2, self.rect.height // 2
@@ -113,14 +120,28 @@ class BarManager:
             app_height - header_height - (config.to_show * config.bar_height)
         ) / (1 + config.to_show)
 
+        # Calculate max text width to adjust left gap
+        temp_font = pygame.font.Font(config.header_font, config.small_text_size)
+        max_text_width = max(
+            temp_font.render(label, True, (0, 0, 0)).get_width() for label, _ in data
+        )
+        adjusted_left_gap = max(
+            config.left_gap, max_text_width + config.text_bar_distance + 20
+        )
+
+        # Adjust width multiplier based on available space
+        max_value = max(value for _, value in data)
+        available_width = pygame.display.Info().current_w - adjusted_left_gap - 100
+        width_multiplier = min(config.width_multiplier, available_width / max_value)
+
         for idx, (label, value) in enumerate(data):
             self.bars.append(
                 SuperRect(
-                    config.left_gap,
+                    adjusted_left_gap,
                     header_height + self.gap * (idx + 1) + config.bar_height * idx,
                     0,
                     config.bar_height,
-                    value * config.width_multiplier,
+                    value * width_multiplier,
                     label,
                     config.colors[idx % len(config.colors)],
                 )
@@ -141,10 +162,10 @@ class TextRenderer:
         self.renders = []
 
         for bar in bars:
-            render = self.font.render(bar.title, True, config.header_color.rgb())
+            render = self.font.render(bar.title, True, config.header_bg_color.rgb())
             render_rect = render.get_rect()
             render_rect.center = (render_rect.center[0], bar.centery)
-            render_rect.right = config.left_gap - config.text_bar_distance
+            render_rect.right = bar.x - config.text_bar_distance
             self.renders.append((render, render_rect))
 
     def create_continuous_renders(
@@ -220,6 +241,18 @@ class Graph:
                     item.target, self.pgapp.time_elapsed, time_each
                 )
 
+    def simultaneous_grow_flat(self, speed_multiplier: float) -> None:
+        """Grow all bars simultaneously with flat animation speed.
+
+        Args:
+            speed_multiplier: Speed multiplier for flat animation
+        """
+        for item in self.bars:
+            if item.width < item.target:
+                item.width = self._increment_rect_flat(
+                    item.target, self.pgapp.time_elapsed, speed_multiplier
+                )
+
     def top_down_grow(self, time_each: float) -> None:
         """Grow bars sequentially from top to bottom.
 
@@ -232,6 +265,27 @@ class Graph:
                     item.target, self.pgapp.time_elapsed - idx * time_each, time_each
                 )
 
+    def top_down_grow_flat(self, speed_multiplier: float) -> None:
+        """Grow bars sequentially from top to bottom with flat animation speed.
+
+        Args:
+            speed_multiplier: Speed multiplier for flat animation
+        """
+        for idx, item in enumerate(self.bars):
+            if idx > 0 and self.bars[idx - 1].width < self.bars[idx - 1].target:
+                continue
+            if item.width < item.target:
+                # Calculate total time taken by previous bars
+                previous_time = (
+                    sum(bar.target / speed_multiplier for bar in self.bars[:idx]) / 100
+                )
+
+                item.width = self._increment_rect_flat(
+                    item.target,
+                    self.pgapp.time_elapsed - previous_time,
+                    speed_multiplier,
+                )
+
     def bottom_up_grow(self, time_each: float) -> None:
         """Grow bars sequentially from bottom to top.
 
@@ -242,6 +296,32 @@ class Graph:
             if item.width < item.target:
                 item.width = self._increment_rect(
                     item.target, self.pgapp.time_elapsed - idx * time_each, time_each
+                )
+
+    def bottom_up_grow_flat(self, speed_multiplier: float) -> None:
+        """Grow bars sequentially from bottom to top with flat animation speed.
+
+        Args:
+            speed_multiplier: Speed multiplier for flat animation
+        """
+        for idx, item in enumerate(self.bars[::-1]):
+            # Don't start growing current bar until previous bar (the one below) is done
+            if (
+                idx > 0
+                and self.bars[::-1][idx - 1].width < self.bars[::-1][idx - 1].target
+            ):
+                continue
+            if item.width < item.target:
+                # Calculate total time taken by previous bars (the ones below)
+                previous_time = (
+                    sum(bar.target / speed_multiplier for bar in self.bars[::-1][:idx])
+                    / 100
+                )
+
+                item.width = self._increment_rect_flat(
+                    item.target,
+                    self.pgapp.time_elapsed - previous_time,
+                    speed_multiplier,
                 )
 
     def create_continuous_renders(
@@ -280,8 +360,24 @@ class Graph:
         return round(deltat * increment_per_ms * 100)
 
     @staticmethod
+    def _increment_rect_flat(target: float, deltat: float, value: float) -> int:
+        """Calculate incremental width for smooth bar growth with flat animation speed.
+
+        Args:
+            target: Target width for bar
+            deltat: Time elapsed since start
+            value: Value per second for flat animation
+
+        Returns:
+            New width value for bar
+        """
+
+        return round(deltat * value * 100)
+
+    @staticmethod
     def roundup(x: float) -> int:
         """Round up to nearest hundred.
+
 
         Args:
             x: Value to round up
@@ -297,6 +393,9 @@ class Graph:
             "simultaneous": self.simultaneous_grow,
             "top_down": self.top_down_grow,
             "bottom_up": self.bottom_up_grow,
+            "simultaneous_flat": self.simultaneous_grow_flat,
+            "top_down_flat": self.top_down_grow_flat,
+            "bottom_up_flat": self.bottom_up_grow_flat,
         }
 
         while self.pgapp.running:
@@ -310,7 +409,7 @@ class Graph:
             self.pgapp.draw_data_rects(
                 self.bars,
                 self.header,
-                self.config.header_color,
+                self.config.header_bg_color,
                 self.header.text_render,
                 self.header.text_rect,
             )
