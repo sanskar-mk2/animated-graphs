@@ -1,6 +1,7 @@
 import pygame
 from .color import Color
 from .super_rect import SuperRect
+from pygame_screen_record import ScreenRecorder
 
 
 class Display:
@@ -81,7 +82,9 @@ class EventHandler:
 class PgApp:
     """Main game application class."""
 
-    def __init__(self, dimensions: tuple[int, int]) -> None:
+    def __init__(
+        self, dimensions: tuple[int, int],
+    ) -> None:
         """Initialize the game window and components.
 
         Args:
@@ -96,6 +99,7 @@ class PgApp:
         self.t0: float = 0.0
         self.time_elapsed: float = 0.0
         self.fpsClock = pygame.time.Clock()
+        self.recorder = ScreenRecorder()
 
     def update_display(self):
         self.display.update()

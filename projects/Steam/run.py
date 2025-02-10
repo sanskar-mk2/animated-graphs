@@ -59,7 +59,6 @@ def main():
     )
 
     for i in range(len(id_positive_pair)):
-        # get name by games_df[games_df["app_id"] == id_positive_pair[i][0]]
         name = games_df[games_df["app_id"] == id_positive_pair[i][0]]["name"].values[0]
         k_v_pair.append((name, id_positive_pair[i][1]))
 
@@ -72,7 +71,6 @@ def main():
         bar_height=80,
         width_multiplier=0.0005,
         colors=[
-            Color("#0000db"),
             Color("#00b6db"),
             Color("#00db6d"),
             Color("#ffb600"),
@@ -91,6 +89,7 @@ def main():
         header_text_color=Color("#000000"),
         value_gap=10,
         animation_type="simultaneous_flat",
+        record_path="steam_games_positive_reviews.mp4",
     )
     graph = Graph(pgapp=pgapp, data=k_v_pair, header_height=100, config=config)
     graph.run()

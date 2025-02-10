@@ -30,6 +30,8 @@ class GraphConfig:
         header_text_color: Color = Color("#000000"),
         value_gap: int = 10,
         animation_type: str = "bottom_up",
+        record_path: str = "",
+        wait_time_after_completion: int = 3,
     ) -> None:
         """Initialize graph configuration.
 
@@ -52,7 +54,8 @@ class GraphConfig:
             header_text_color: Header text color
             value_gap: Gap between value text and bar edge
             animation_type: Type of animation ("simultaneous", "top_down", "bottom_up")
-
+            record_path: Path to save the recording
+            wait_time_after_completion: Time to wait after completion before saving the recording
         """
         self.header_font = header_font
         self.header_font_size = header_font_size
@@ -75,6 +78,8 @@ class GraphConfig:
         self.header_text_color = header_text_color
         self.value_gap = value_gap
         self.animation_type = animation_type
+        self.record_path = record_path
+        self.wait_time_after_completion = wait_time_after_completion
 
 
 class GraphHeader:
@@ -228,6 +233,19 @@ class Graph:
         self.text_renderer = TextRenderer(config, self.bar_manager.bars)
         self.bars = self.bar_manager.bars
         self.store_rect_render = self.text_renderer.renders
+        self.is_complete = False
+        self.completion_time = None
+
+    def check_completion(self) -> bool:
+        """Check if all bars have reached their target width.
+
+        Returns:
+            bool: True if all bars are complete, False otherwise
+        """
+        self.is_complete = all(bar.width >= bar.target for bar in self.bars)
+        if self.is_complete and not self.completion_time:
+            self.completion_time = time.time()
+        return self.is_complete
 
     def simultaneous_grow(self, time_each: float) -> None:
         """Grow all bars simultaneously.
@@ -398,6 +416,9 @@ class Graph:
             "bottom_up_flat": self.bottom_up_grow_flat,
         }
 
+        if self.config.record_path:
+            self.pgapp.recorder.start_rec(self.config.fps)
+
         while self.pgapp.running:
             self.pgapp.t0 = time.time()
             for event in pygame.event.get():
@@ -425,3 +446,15 @@ class Graph:
             self.pgapp.update_display()
             self.pgapp.fpsClock.tick(self.config.fps)
             self.pgapp.time_elapsed += time.time() - self.pgapp.t0
+
+            if self.check_completion():
+                if (
+                    self.completion_time
+                    and time.time() - self.completion_time
+                    > self.config.wait_time_after_completion
+                ):
+                    if self.config.record_path:
+                        self.pgapp.recorder.stop_rec().save_recording(
+                            self.config.record_path
+                        )
+                    self.pgapp.running = False
