@@ -203,7 +203,6 @@ class TextRenderer:
             render_rect.centery = bar.centery
             yield render, render_rect, bar.width > gap_from_right + render_rect.width
 
-
 class Graph:
     def __init__(
         self,
@@ -322,6 +321,11 @@ class Graph:
     def run(self) -> None:
         """Run the graph animation loop."""
 
+        from pygame_screen_record.ScreenRecorder import add_codec
+
+        # Use mp4v instead of h264 for .mp4 files
+        add_codec("mp4", "mp4v")
+
         if self.config.record_path:
             self.pgapp.recorder.start_rec(self.config.fps)
 
@@ -359,8 +363,11 @@ class Graph:
                     and time.time() - self.completion_time
                     > self.config.wait_time_after_completion
                 ):
+                    print("Finished")
                     if self.config.record_path:
                         self.pgapp.recorder.stop_rec().save_recording(
                             self.config.record_path
                         )
-                    self.pgapp.running = False
+                    pygame.quit()
+                    return
+
