@@ -1,7 +1,7 @@
 import pygame
-from .color import Color
-from .super_rect import SuperRect
-from pygame_screen_record import ScreenRecorder
+from color import Color
+from super_rect import SuperRect
+from pygame_screen_record import ScreenRecorder, add_codec
 
 
 class Display:
@@ -100,6 +100,7 @@ class PgApp:
         self.time_elapsed: float = 0.0
         self.fpsClock = pygame.time.Clock()
         self.recorder = ScreenRecorder()
+        add_codec("mp4", "mp4v")
 
     def update_display(self):
         self.display.update()

@@ -1,5 +1,5 @@
 from pygame import Rect
-from .color import Color
+from color import Color
 
 
 class SuperRect(Rect):

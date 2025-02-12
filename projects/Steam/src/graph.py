@@ -1,10 +1,10 @@
-from .color import Color
+from color import Color
 import math
-from .super_rect import SuperRect
+from super_rect import SuperRect
 import pygame
 import time
 from typing import Iterator, Tuple
-from .pg_app import PgApp
+from pg_app import PgApp
 
 
 class GraphConfig:
