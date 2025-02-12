@@ -1,3 +1,10 @@
+# Ignore outputs folder
+outputs/*
+
+# But keep outputs/h264 folder
+!outputs/h264/
+!outputs/h264/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
