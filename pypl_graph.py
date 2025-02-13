@@ -4,8 +4,11 @@ from src.animated_graph import PygameExtended
 from src.graph import GraphConfig
 from src.animated_graph import BarChartAnimation
 
+# see projects/PYPL
+visualization_data = load_data("./ODE/All.json")
 
-visualization_data = load_data("./PYPL/All.json")
+HEADER_TEXT = "Online IDE Popularity (Global)"
+RECORD_PATH = "outputs/pypl_ode_all_graph.mp4"
 
 WINDOW_SIZE = (1920, 1080)
 app = PygameExtended(WINDOW_SIZE)
@@ -14,7 +17,7 @@ app = PygameExtended(WINDOW_SIZE)
 chart_config = GraphConfig(
     header_font="./assets/fonts/Arial.ttf",
     header_font_size=69,
-    header_text="Popularity of Programming Language (Global)",
+    header_text=HEADER_TEXT,
     bar_height=40,
     width_multiplier=100,
     colors=[
@@ -39,7 +42,7 @@ chart_config = GraphConfig(
     header_bg_color=Color("#6c5671"),
     header_text_color=Color("#ffffff"),
     value_gap=10,
-    record_path="outputs/pypl_pypl_all_graph.mp4",
+    record_path=RECORD_PATH,
     wait_time_after_completion=3,
     value_prepost=("~", "%"),
 )
