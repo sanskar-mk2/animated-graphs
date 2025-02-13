@@ -90,9 +90,7 @@ chart.run()
 
 Here are some example animations created with this library:
 
-https://github.com/sanskar-mk2/animated-graphs/blob/master/outputs/h264/steam_most_positive_reviews.mp4
-
-https://github.com/sanskar-mk2/animated-graphs/blob/master/outputs/h264/pypl_pypl_all_graph.mp4
+<!-- todo: add example outputs -->
 
 ## Configuration Options
 
