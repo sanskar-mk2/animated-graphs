@@ -3,6 +3,35 @@ from src.graph import Graph, GraphConfig
 from src.color import Color
 import pandas as pd
 import os
+import requests
+import urllib.parse
+
+
+def download_header_image(app_id, header_image_url, current_dir):
+    # Create header_images directory if it doesn't exist
+    header_images_dir = os.path.join(current_dir, "steam-insights/header_images")
+    os.makedirs(header_images_dir, exist_ok=True)
+
+    # Get file extension from URL
+    parsed_url = urllib.parse.urlparse(header_image_url)
+    extension = os.path.splitext(parsed_url.path)[1]
+    if not extension:
+        extension = ".jpg"  # Default to jpg if no extension found
+
+    # Create filename
+    filename = os.path.join(header_images_dir, f"{app_id}{extension}")
+
+    # Check if file already exists (caching)
+    if not os.path.exists(filename):
+        try:
+            response = requests.get(header_image_url)
+            response.raise_for_status()
+            with open(filename, "wb") as f:
+                f.write(response.content)
+        except Exception as e:
+            print(f"Error downloading image for app_id {app_id}: {e}")
+
+    return filename
 
 
 def main():
@@ -60,8 +89,34 @@ def main():
         escapechar="\\",
     )
 
+    promotional_df = pd.read_csv(
+        os.path.join(current_dir, "steam-insights/promotional.csv"),
+        on_bad_lines="skip",
+        dtype={
+            "app_id": str,
+            "header_image": str,
+            "background_image": str,
+            "screenshots": str,
+            "movies": str,
+        },
+        encoding="utf-8",
+        encoding_errors="ignore",
+        quoting=1,
+        escapechar="\\",
+    )
+
+    image_paths = []
     for i in range(len(id_positive_pair)):
-        name = games_df[games_df["app_id"] == id_positive_pair[i][0]]["name"].values[0]
+        app_id = id_positive_pair[i][0]
+        name = games_df[games_df["app_id"] == app_id]["name"].values[0]
+
+        # Get and download header image
+        header_image_url = promotional_df[promotional_df["app_id"] == app_id][
+            "header_image"
+        ].values[0]
+        image_path = download_header_image(app_id, header_image_url, current_dir)
+        image_paths.append(image_path)
+
         k_v_pair.append((name, id_positive_pair[i][1]))
 
     pgapp = PgApp((1920, 1080))
@@ -85,12 +140,13 @@ def main():
         to_show=10,
         fps=60,
         animation_speed=1,
-        bg_color=Color("#000000"),
-        header_bg_color=Color("#FFFFFF"),
-        header_text_color=Color("#000000"),
+        bg_color=Color("#eeeeee"),
+        header_bg_color=Color("#6c5671"),
+        header_text_color=Color("#ffffff"),
         value_gap=10,
-        animation_type="simultaneous_flat",
-        record_path="",
+        animation_type="bottom_up_flat",
+        record_path="outputs/steam_most_positive_reviews.mp4",
+        image_paths=image_paths,
     )
     graph = Graph(pgapp=pgapp, data=k_v_pair, header_height=100, config=config)
     graph.run()

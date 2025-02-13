@@ -32,6 +32,7 @@ class GraphConfig:
         animation_type: str = "bottom_up",
         record_path: str = "",
         wait_time_after_completion: int = 3,
+        image_paths: list[str] = None,
     ) -> None:
         """Initialize graph configuration.
 
@@ -56,6 +57,7 @@ class GraphConfig:
             animation_type: Type of animation ("simultaneous", "top_down", "bottom_up")
             record_path: Path to save the recording
             wait_time_after_completion: Time to wait after completion before saving the recording
+            image_paths: List of image paths
         """
         self.header_font = header_font
         self.header_font_size = header_font_size
@@ -80,6 +82,7 @@ class GraphConfig:
         self.animation_type = animation_type
         self.record_path = record_path
         self.wait_time_after_completion = wait_time_after_completion
+        self.image_paths = image_paths or []
 
 
 class GraphHeader:
@@ -208,6 +211,8 @@ class TextRenderer:
 
 
 class Graph:
+    """Handles the creation and animation of a bar graph visualization."""
+
     def __init__(
         self,
         pgapp: PgApp,
@@ -235,6 +240,162 @@ class Graph:
         self.store_rect_render = self.text_renderer.renders
         self.is_complete = False
         self.completion_time = None
+
+        # Initialize images and their colors
+        self.images = [None] * len(data)
+        if config.image_paths:
+            self._load_images(config.image_paths)
+            self._update_bar_colors()
+
+    def _load_images(self, image_paths: list[str]) -> None:
+        """Load images from provided paths.
+
+        Args:
+            image_paths: List of paths to images
+        """
+        for idx, img_path in enumerate(image_paths):
+            if idx >= len(self.images):
+                break
+            try:
+                image = pygame.image.load(img_path)
+                self.images[idx] = image
+            except pygame.error:
+                print(f"Could not load image: {img_path}")
+                self.images[idx] = None
+
+    def _get_dominant_color(self, surface: pygame.Surface) -> Color:
+        """Extract the dominant color from a pygame surface quickly.
+
+        Args:
+            surface: Pygame surface to analyze
+
+        Returns:
+            Color: Most dominant color found in the image
+        """
+        # Scale down image for faster processing
+        SCALE_SIZE = (32, 32)
+        small_surface = pygame.transform.scale(surface, SCALE_SIZE)
+
+        # Convert surface to pixel array
+        try:
+            pixels = pygame.surfarray.pixels3d(small_surface)
+        except:
+            return self.config.colors[0]
+
+        # Reshape to 2D array of pixels
+        pixels_2d = pixels.reshape(-1, 3)
+
+        # Dictionary to store color frequencies and their vibrancy scores
+        color_scores = {}
+
+        def is_background(r, g, b):
+            # Skip very light colors
+            if r > 240 and g > 240 and b > 240:
+                return True
+            # Skip very dark colors
+            if r < 15 and g < 15 and b < 15:
+                return True
+            # Skip grays
+            avg = (r + g + b) / 3
+            if abs(r - avg) < 10 and abs(g - avg) < 10 and abs(b - avg) < 10:
+                return True
+            return False
+
+        def get_color_score(r, g, b):
+            # Calculate saturation
+            max_val = max(r, g, b)
+            min_val = min(r, g, b)
+            saturation = 0 if max_val == 0 else (max_val - min_val) / max_val
+
+            # Calculate intensity
+            intensity = (r + g + b) / 3 / 255
+
+            # Prefer colors with high saturation and medium intensity
+            return saturation * (1 - abs(intensity - 0.5))
+
+        # Count colors and calculate their scores
+        for pixel in pixels_2d:
+            r = round(pixel[0] / 32) * 32
+            g = round(pixel[1] / 32) * 32
+            b = round(pixel[2] / 32) * 32
+
+            if not is_background(r, g, b):
+                color_key = (r, g, b)
+                if color_key not in color_scores:
+                    color_scores[color_key] = {
+                        "count": 0,
+                        "score": get_color_score(r, g, b),
+                    }
+                color_scores[color_key]["count"] += 1
+
+        if not color_scores:
+            return self.config.colors[0]
+
+        # Find color with best combination of frequency and vibrancy
+        best_color = max(
+            color_scores.items(), key=lambda x: x[1]["count"] * x[1]["score"]
+        )[0]
+
+        # Ensure RGB values are in valid range and properly formatted
+        r = max(0, min(255, best_color[0]))
+        g = max(0, min(255, best_color[1]))
+        b = max(0, min(255, best_color[2]))
+
+        return Color(f"#{r:02x}{g:02x}{b:02x}")
+
+    def _update_bar_colors(self) -> None:
+        """Update bar colors based on dominant colors from corresponding images."""
+        for idx, (image, bar) in enumerate(zip(self.images, self.bars)):
+            if image is not None:
+                try:
+                    dominant_color = self._get_dominant_color(image)
+                    bar.color = dominant_color
+                except Exception as e:
+                    print(f"Error extracting color for image {idx}: {e}")
+                    # Keep original color if extraction fails
+                    continue
+
+    def _is_bar_animating(self, bar_index: int) -> bool:
+        """Check if a specific bar is currently animating.
+
+        Args:
+            bar_index: Index of the bar to check
+
+        Returns:
+            bool: True if the bar is currently animating
+        """
+        if self.config.animation_type in ["simultaneous", "simultaneous_flat"]:
+            return self.bars[bar_index].width < self.bars[bar_index].target
+        elif self.config.animation_type in ["top_down", "top_down_flat"]:
+            # For top-down, check if all previous bars are complete and current bar isn't
+            return (
+                all(bar.width >= bar.target for bar in self.bars[:bar_index])
+                and self.bars[bar_index].width < self.bars[bar_index].target
+            )
+        elif self.config.animation_type in ["bottom_up", "bottom_up_flat"]:
+            # For bottom-up, check if all subsequent bars are complete and current bar isn't
+            return (
+                all(bar.width >= bar.target for bar in self.bars[bar_index + 1 :])
+                and self.bars[bar_index].width < self.bars[bar_index].target
+            )
+        return False
+
+    def _render_current_image(self) -> None:
+        """Render the image for the currently animating bar at bottom right."""
+        for idx, bar in enumerate(self.bars):
+            if (
+                self._is_bar_animating(idx)
+                and idx < len(self.images)
+                and self.images[idx]
+            ):
+                image = self.images[idx]
+                image_rect = image.get_rect()
+                # Position image at bottom right
+                image_rect.right = self.pgapp.width - 50
+                image_rect.bottom = self.pgapp.height - 50
+                self.pgapp.screen.blit(image, image_rect)
+                # Only show one image at a time
+                break
 
     def check_completion(self) -> bool:
         """Check if all bars have reached their target width.
@@ -293,11 +454,9 @@ class Graph:
             if idx > 0 and self.bars[idx - 1].width < self.bars[idx - 1].target:
                 continue
             if item.width < item.target:
-                # Calculate total time taken by previous bars
                 previous_time = (
                     sum(bar.target / speed_multiplier for bar in self.bars[:idx]) / 100
                 )
-
                 item.width = self._increment_rect_flat(
                     item.target,
                     self.pgapp.time_elapsed - previous_time,
@@ -323,19 +482,16 @@ class Graph:
             speed_multiplier: Speed multiplier for flat animation
         """
         for idx, item in enumerate(self.bars[::-1]):
-            # Don't start growing current bar until previous bar (the one below) is done
             if (
                 idx > 0
                 and self.bars[::-1][idx - 1].width < self.bars[::-1][idx - 1].target
             ):
                 continue
             if item.width < item.target:
-                # Calculate total time taken by previous bars (the ones below)
                 previous_time = (
                     sum(bar.target / speed_multiplier for bar in self.bars[::-1][:idx])
                     / 100
                 )
-
                 item.width = self._increment_rect_flat(
                     item.target,
                     self.pgapp.time_elapsed - previous_time,
@@ -379,7 +535,7 @@ class Graph:
 
     @staticmethod
     def _increment_rect_flat(target: float, deltat: float, value: float) -> int:
-        """Calculate incremental width for smooth bar growth with flat animation speed.
+        """Calculate incremental width for flat animation speed.
 
         Args:
             target: Target width for bar
@@ -389,13 +545,11 @@ class Graph:
         Returns:
             New width value for bar
         """
-
         return round(deltat * value * 100)
 
     @staticmethod
     def roundup(x: float) -> int:
         """Round up to nearest hundred.
-
 
         Args:
             x: Value to round up
@@ -427,6 +581,8 @@ class Graph:
             # Draw frame
             self.pgapp.screen.fill(self.config.bg_color.rgb())
             animation_methods[self.config.animation_type](self.config.animation_speed)
+
+            # Draw main graph elements
             self.pgapp.draw_data_rects(
                 self.bars,
                 self.header,
@@ -441,6 +597,10 @@ class Graph:
                 self.config.value_gap, self.config.bg_color
             )
             self.pgapp.draw_continuous_numbers(renders)
+
+            # Render the current image if any
+            if self.images:
+                self._render_current_image()
 
             # Update display
             self.pgapp.update_display()
