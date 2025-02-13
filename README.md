@@ -1,4 +1,4 @@
-# Animated Bar Chart Generator
+# Animated Graphs
 
 A Python library for creating smooth, animated bar chart visualizations using Pygame. This project allows you to create dynamic racing bar charts with customizable colors, animations, and recording capabilities.
 
@@ -12,27 +12,19 @@ A Python library for creating smooth, animated bar chart visualizations using Py
 -   Support for image integration with dominant color extraction
 -   Flexible configuration options
 
-## Dependencies
-
--   Python 3.7+
--   pygame
--   numpy
--   pandas
--   pygame_screen_record
-
 ## Installation
 
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd animated-bar-chart
+git clone https://github.com/sanskar-mk2/animated-graphs.git
+cd animated-graphs
 ```
 
 2. Install required packages:
 
 ```bash
-pip install pygame numpy pandas pygame_screen_record
+pip install -r requirements.txt
 ```
 
 3. Ensure you have the required assets:
@@ -98,7 +90,8 @@ chart.run()
 
 Here are some example animations created with this library:
 
-https://github.com/yourusername/animated-bar-chart/raw/main/output/h264/example.mp4
+https://github.com/sanskar-mk2/animated-graphs/raw/main/outputs/h264/steam_most_positive_reviews.mp4
+https://github.com/sanskar-mk2/animated-graphs/raw/main/outputs/h264/pypl_pypl_all_graph.mp4
 
 ## Configuration Options
 
@@ -123,29 +116,3 @@ https://github.com/yourusername/animated-bar-chart/raw/main/output/h264/example.
 -   `record_path`: Path to save the recording
 -   `wait_time_after_completion`: Time to wait after completion
 -   `value_prepost`: Tuple of (prefix, suffix) for values
-
-## Classes Overview
-
-### Main Classes
-
--   `PygameExtended`: Extended Pygame application with enhanced drawing capabilities
--   `AnimatedBar`: Bar with animation properties
--   `BarChartAnimation`: Handles the creation and animation of bar charts
--   `GraphConfig`: Configuration settings for graph appearance and behavior
--   `Color`: Color handling utility class
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-MIT License
-
-## Support
-
-For issues and feature requests, please use the GitHub issue tracker.
