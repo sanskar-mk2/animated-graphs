@@ -90,7 +90,12 @@ chart.run()
 
 Here are some example animations created with this library:
 
-<!-- todo: add example outputs -->
+https://github.com/user-attachments/assets/a292acce-49f8-47f7-b491-33c189b3bcc2
+
+https://github.com/user-attachments/assets/662af3f8-7a24-47e5-a5b7-4696409a04e6
+
+
+
 
 ## Configuration Options
 
